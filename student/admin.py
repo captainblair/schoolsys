@@ -14,6 +14,7 @@ class ParentAdmin(admin.ModelAdmin):
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
     list_display = (
+        "user",
         "student_id",
         "first_name",
         "last_name",
@@ -21,17 +22,18 @@ class StudentAdmin(admin.ModelAdmin):
         "student_class",
         "section",
         "admission_number",
+        "approval_status",
     )
-    list_filter = ("gender", "student_class", "section")
-    search_fields = ("student_id", "first_name", "last_name", "admission_number")
+    list_filter = ("approval_status", "gender", "student_class", "section")
+    search_fields = ("user__username", "user__email", "student_id", "first_name", "last_name", "admission_number")
     prepopulated_fields = {"slug": ("first_name", "last_name", "student_id")}
 
 
 @admin.register(Teacher)
 class TeacherAdmin(admin.ModelAdmin):
-    list_display = ("teacher_id", "name", "gender", "subject", "teacher_class", "mobile")
-    list_filter = ("gender", "subject", "teacher_class")
-    search_fields = ("teacher_id", "name", "email", "mobile")
+    list_display = ("user", "teacher_id", "name", "gender", "subject", "teacher_class", "mobile", "approval_status")
+    list_filter = ("approval_status", "gender", "subject", "teacher_class")
+    search_fields = ("user__username", "user__email", "teacher_id", "name", "email", "mobile")
     prepopulated_fields = {"slug": ("name", "teacher_id")}
 
 

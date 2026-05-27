@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
-from .models import CustomUser, LoginActivity, PasswordResetRequest
+from .models import CustomUser, LoginActivity, Notification, PasswordResetRequest
 
 # Register your models here.
 
@@ -51,3 +51,11 @@ class PasswordResetRequestAdmin(admin.ModelAdmin):
     search_fields = ("user__username", "user__email", "token")
     list_filter = ("created_at", "expires_at", "used_at")
     readonly_fields = ("token", "created_at")
+
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ("user", "title", "is_read", "created_at")
+    list_filter = ("is_read", "created_at")
+    search_fields = ("user__username", "user__email", "title", "message")
+    readonly_fields = ("created_at",)

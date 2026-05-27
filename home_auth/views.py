@@ -6,11 +6,13 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.mail import BadHeaderError, send_mail
 from django.conf import settings
-from django.shortcuts import redirect, render
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import LoginActivity, PasswordResetRequest
+from .models import LoginActivity, Notification, PasswordResetRequest
+from .notifications import create_notification
 
 # Create your views here.
 
@@ -49,6 +51,15 @@ def _dashboard_for_user(user):
     return None
 
 
+def _next_step_for_user(user):
+    dashboard = _dashboard_for_user(user)
+    if dashboard == "student-dashboard" and not hasattr(user, "student_profile"):
+        return "complete_student_profile"
+    if dashboard == "teacher-dashboard" and not hasattr(user, "teacher_profile"):
+        return "complete_teacher_profile"
+    return dashboard
+
+
 def login_view(request):
     if request.user.is_authenticated and request.method == "POST":
         dashboard = _dashboard_for_user(request.user)
@@ -68,15 +79,15 @@ def login_view(request):
             user = authenticate(request, username=matched_user.get_username(), password=password)
 
         if user is not None:
-            dashboard = _dashboard_for_user(user)
-            if dashboard is None:
+            next_step = _next_step_for_user(user)
+            if next_step is None:
                 messages.error(request, "Invalid user role")
                 return render(request, "Home/login.html")
 
             login(request, user)
             LoginActivity.objects.create(user=user)
             messages.success(request, "Logged in successfully")
-            return redirect(dashboard)
+            return redirect(next_step)
 
         messages.error(request, "Invalid email or password")
 
@@ -130,8 +141,10 @@ def register_view(request):
         if hasattr(user, "is_admin"):
             update_fields.append("is_admin")
         user.save(update_fields=update_fields)
-        messages.success(request, "Account created successfully. You can now log in.")
-        return redirect("login")
+        create_notification(user, "Account created", "Your account was created successfully.")
+        login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+        messages.success(request, "Account created successfully. Please complete your profile.")
+        return redirect(_next_step_for_user(user) or "index")
 
     return render(request, "Home/register.html")
 
@@ -150,6 +163,9 @@ def forgot_password_view(request):
 
             if not getattr(settings, "EMAIL_HOST", ""):
                 messages.error(request, "Email is not configured. Please set EMAIL_HOST, EMAIL_HOST_USER, and EMAIL_HOST_PASSWORD.")
+                return render(request, "Home/forgot-password.html")
+            if settings.EMAIL_HOST_USER == "your_email@gmail.com" or settings.EMAIL_HOST_PASSWORD == "your_gmail_app_password":
+                messages.error(request, "Email credentials are still placeholders. Update HOME/.env with your real email and app password.")
                 return render(request, "Home/forgot-password.html")
 
             try:
@@ -211,6 +227,29 @@ def logout_view(request):
     logout(request)
     messages.success(request, "Logged out successfully")
     return redirect("login")
+
+
+@login_required
+def notification_list_view(request):
+    notifications = Notification.objects.filter(user=request.user)
+    return render(request, "Home/notifications.html", {"notifications": notifications})
+
+
+@login_required
+def mark_notification_read_view(request, id):
+    notification = get_object_or_404(Notification, id=id, user=request.user)
+    notification.is_read = True
+    notification.save(update_fields=["is_read"])
+
+    if notification.link:
+        return redirect(notification.link)
+    return redirect("notifications")
+
+
+@login_required
+def mark_all_notifications_read_view(request):
+    Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+    return redirect("notifications")
 
 
 def error_404_view(request, exception=None):

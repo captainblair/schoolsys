@@ -40,71 +40,44 @@
             <ul class="nav user-menu">
                <li class="nav-item dropdown noti-dropdown">
                   <a href="#" class="dropdown-toggle nav-link" data-toggle="dropdown">
-                  <i class="far fa-bell"></i> <span class="badge badge-pill">3</span>
+                  <i class="far fa-bell"></i> <span class="badge badge-pill">{{ unread_notifications_count }}</span>
                   </a>
                   <div class="dropdown-menu notifications">
                      <div class="topnav-dropdown-header">
                         <span class="notification-title">Notifications</span>
-                        <a href="javascript:void(0)" class="clear-noti"> Clear All </a>
+                        <a href="{% url 'notifications_read_all' %}" class="clear-noti"> Clear All </a>
                      </div>
                      <div class="noti-content">
                         <ul class="notification-list">
-                           <li class="notification-message">
-                              <a href="#">
-                                 <div class="media">
-                                    <span class="avatar avatar-sm">
-                                    <img class="avatar-img rounded-circle" alt="User Image" src="{% static 'img/profiles/avatar-02.jpg' %}">
-                                    </span>
-                                    <div class="media-body">
-                                       <p class="noti-details"><span class="noti-title">Carlson Tech</span> has approved <span class="noti-title">your estimate</span></p>
-                                       <p class="noti-time"><span class="notification-time">4 mins ago</span></p>
+                           {% for notification in recent_notifications %}
+                              <li class="notification-message">
+                                 <a href="{% url 'notification_read' notification.id %}">
+                                    <div class="media">
+                                       <span class="avatar avatar-sm">
+                                       <img class="avatar-img rounded-circle" alt="User Image" src="{% static 'img/profiles/avatar-01.jpg' %}">
+                                       </span>
+                                       <div class="media-body">
+                                          <p class="noti-details"><span class="noti-title">{{ notification.title }}</span> {{ notification.message }}</p>
+                                          <p class="noti-time"><span class="notification-time">{{ notification.created_at|timesince }} ago</span></p>
+                                       </div>
                                     </div>
-                                 </div>
-                              </a>
-                           </li>
-                           <li class="notification-message">
-                              <a href="#">
-                                 <div class="media">
-                                    <span class="avatar avatar-sm">
-                                    <img class="avatar-img rounded-circle" alt="User Image" src="{% static 'img/profiles/avatar-11.jpg' %}">
-                                    </span>
-                                    <div class="media-body">
-                                       <p class="noti-details"><span class="noti-title">International Software Inc</span> has sent you a invoice in the amount of <span class="noti-title">$218</span></p>
-                                       <p class="noti-time"><span class="notification-time">6 mins ago</span></p>
+                                 </a>
+                              </li>
+                           {% empty %}
+                              <li class="notification-message">
+                                 <a href="{% url 'notifications' %}">
+                                    <div class="media">
+                                       <div class="media-body">
+                                          <p class="noti-details">No notifications yet.</p>
+                                       </div>
                                     </div>
-                                 </div>
-                              </a>
-                           </li>
-                           <li class="notification-message">
-                              <a href="#">
-                                 <div class="media">
-                                    <span class="avatar avatar-sm">
-                                    <img class="avatar-img rounded-circle" alt="User Image" src="{% static 'img/profiles/avatar-17.jpg' %}">
-                                    </span>
-                                    <div class="media-body">
-                                       <p class="noti-details"><span class="noti-title">John Hendry</span> sent a cancellation request <span class="noti-title">Apple iPhone XR</span></p>
-                                       <p class="noti-time"><span class="notification-time">8 mins ago</span></p>
-                                    </div>
-                                 </div>
-                              </a>
-                           </li>
-                           <li class="notification-message">
-                              <a href="#">
-                                 <div class="media">
-                                    <span class="avatar avatar-sm">
-                                    <img class="avatar-img rounded-circle" alt="User Image" src="{% static 'img/profiles/avatar-13.jpg' %}">
-                                    </span>
-                                    <div class="media-body">
-                                       <p class="noti-details"><span class="noti-title">Mercury Software Inc</span> added a new product <span class="noti-title">Apple MacBook Pro</span></p>
-                                       <p class="noti-time"><span class="notification-time">12 mins ago</span></p>
-                                    </div>
-                                 </div>
-                              </a>
-                           </li>
+                                 </a>
+                              </li>
+                           {% endfor %}
                         </ul>
                      </div>
                      <div class="topnav-dropdown-footer">
-                        <a href="#">View all Notifications</a>
+                        <a href="{% url 'notifications' %}">View all Notifications</a>
                      </div>
                   </div>
                </li>
@@ -139,11 +112,18 @@
                      <li class="submenu active">
                         <a href="#"><i class="fas fa-user-graduate"></i> <span> Dashboard</span> <span class="menu-arrow"></span></a>
                         <ul>
-                           <li><a href="index.html" class="active">Admin Dashboard</a></li>
-                           <li><a href="teacher-dashboard.html">Teacher Dashboard</a></li>
+                           {% if current_user_is_admin %}
+                           <li><a href="{% url 'index' %}" class="active">Admin Dashboard</a></li>
+                           {% endif %}
+                           {% if current_user_is_teacher %}
+                           <li><a href="{% url 'teacher-dashboard' %}">Teacher Dashboard</a></li>
+                           {% endif %}
+                           {% if current_user_is_student %}
                            <li><a href="{% url 'student-dashboard' %}">Student Dashboard</a></li>
+                           {% endif %}
                         </ul>
                      </li>
+                     {% if current_user_is_admin %}
                      <li class="submenu">
                         <a href="#"><i class="fas fa-user-graduate"></i> <span> Students</span> <span class="menu-arrow"></span></a>
                         <ul>
@@ -153,6 +133,12 @@
                            <li><a href="{% url 'edit-student' %}">Student Edit</a></li>
                         </ul>
                      </li>
+                     {% elif current_user_is_student %}
+                     <li>
+                        <a href="{% url 'student-dashboard' %}"><i class="fas fa-user-graduate"></i> <span>My Student Profile</span></a>
+                     </li>
+                     {% endif %}
+                     {% if current_user_is_admin %}
                      <li class="submenu">
                         <a href="#"><i class="fas fa-chalkboard-teacher"></i> <span> Teachers</span> <span class="menu-arrow"></span></a>
                         <ul>
@@ -162,6 +148,12 @@
                            <li><a href="{% url 'teacher_list' %}">Teacher Edit</a></li>
                         </ul>
                      </li>
+                     {% elif current_user_is_teacher %}
+                     <li>
+                        <a href="{% url 'teacher-dashboard' %}"><i class="fas fa-chalkboard-teacher"></i> <span>My Teacher Profile</span></a>
+                     </li>
+                     {% endif %}
+                     {% if current_user_is_admin %}
                      <li class="submenu">
                         <a href="#"><i class="fas fa-building"></i> <span> Departments</span> <span class="menu-arrow"></span></a>
                         <ul>
@@ -178,6 +170,7 @@
                            <li><a href="{% url 'subject_list' %}">Subject Edit</a></li>
                         </ul>
                      </li>
+                     {% endif %}
                      <li class="menu-title">
                         <span>Management</span>
                      </li>

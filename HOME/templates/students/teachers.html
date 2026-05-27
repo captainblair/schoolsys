@@ -32,6 +32,7 @@
                               <th>Subject</th>
                               <th>Section</th>
                               <th>Mobile Number</th>
+                              <th>Status</th>
                               <th>Address</th>
                               <th class="text-right">Action</th>
                            </tr>
@@ -57,9 +58,20 @@
                               <td>{{ teacher.subject }}</td>
                               <td>{{ teacher.section }}</td>
                               <td>{{ teacher.mobile }}</td>
+                              <td>
+                                 <span class="badge badge-{% if teacher.approval_status == 'approved' %}success{% elif teacher.approval_status == 'rejected' %}danger{% else %}warning{% endif %}">
+                                    {{ teacher.get_approval_status_display }}
+                                 </span>
+                              </td>
                               <td>{{ teacher.address }}</td>
                               <td class="text-right">
                                  <div class="actions">
+                                    {% if teacher.approval_status != "approved" %}
+                                    <a href="{% url 'approve_teacher' teacher.id %}" class="btn btn-sm bg-success-light mr-2"><i class="fas fa-check"></i></a>
+                                    {% endif %}
+                                    {% if teacher.approval_status != "rejected" %}
+                                    <a href="{% url 'reject_teacher' teacher.id %}" class="btn btn-sm bg-warning-light mr-2"><i class="fas fa-times"></i></a>
+                                    {% endif %}
                                     <a href="{% url 'edit_teacher' teacher.id %}" class="btn btn-sm bg-success-light mr-2"><i class="fas fa-pen"></i></a>
                                     <button type="button" class="btn btn-sm bg-danger-light" data-toggle="modal" data-target="#delete_teacher_{{ teacher.id }}"><i class="fas fa-trash"></i></button>
                                  </div>
@@ -85,7 +97,7 @@
                            </div>
                            {% empty %}
                            <tr>
-                              <td colspan="9" class="text-center">No teachers found.</td>
+                              <td colspan="10" class="text-center">No teachers found.</td>
                            </tr>
                            {% endfor %}
                         </tbody>

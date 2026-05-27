@@ -316,11 +316,20 @@
 <div class="page-header">
 <div class="row">
 <div class="col-sm-12">
-<h3 class="page-title">Welcome Jonathan!</h3>
+<h3 class="page-title">Welcome {% if teacher %}{{ teacher.name }}{% else %}{{ request.user.first_name|default:request.user.email }}{% endif %}!</h3>
 <ul class="breadcrumb">
 <li class="breadcrumb-item"><a href="index.html">Dashboard</a></li>
 <li class="breadcrumb-item active">Teacher Dashboard</li>
 </ul>
+{% if not teacher %}
+<div class="alert alert-warning mt-3">Your teacher profile has not been linked to this account yet.</div>
+{% elif teacher.approval_status == "pending" %}
+<div class="alert alert-warning mt-3">Your teacher profile is waiting for admin approval.</div>
+{% elif teacher.approval_status == "rejected" %}
+<div class="alert alert-danger mt-3">Your teacher profile was rejected. Please contact the administrator.</div>
+{% elif teacher.approval_status == "approved" %}
+<div class="alert alert-success mt-3">Your teacher profile is approved.</div>
+{% endif %}
 </div>
 </div>
 </div>

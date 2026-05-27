@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from django.utils.text import slugify
 
@@ -20,6 +21,20 @@ class Parent(models.Model):
 
 
 class Student(models.Model):
+    APPROVAL_CHOICES = [
+        ("pending", "Pending"),
+        ("approved", "Approved"),
+        ("rejected", "Rejected"),
+    ]
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="student_profile",
+    )
+    approval_status = models.CharField(max_length=20, choices=APPROVAL_CHOICES, default="pending")
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     student_id = models.CharField(max_length=100)
@@ -53,6 +68,20 @@ class Student(models.Model):
 
 
 class Teacher(models.Model):
+    APPROVAL_CHOICES = [
+        ("pending", "Pending"),
+        ("approved", "Approved"),
+        ("rejected", "Rejected"),
+    ]
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="teacher_profile",
+    )
+    approval_status = models.CharField(max_length=20, choices=APPROVAL_CHOICES, default="pending")
     teacher_id = models.CharField(max_length=100)
     name = models.CharField(max_length=150)
     gender = models.CharField(

@@ -33,6 +33,7 @@
                                        <th>DOB</th>
                                        <th>Parent Name</th>
                                        <th>Mobile Number</th>
+                                       <th>Status</th>
                                        <th>Address</th>
                                        <th class="text-right">Action</th>
                                     </tr>
@@ -57,9 +58,24 @@
                                           <td>{{ student.date_of_birth|date:"d M Y" }}</td>
                                           <td>{{ student.parent.father_name }} / {{ student.parent.mother_name }}</td>
                                           <td>{{ student.mobile_number }}</td>
+                                          <td>
+                                             <span class="badge badge-{% if student.approval_status == 'approved' %}success{% elif student.approval_status == 'rejected' %}danger{% else %}warning{% endif %}">
+                                                {{ student.get_approval_status_display }}
+                                             </span>
+                                          </td>
                                           <td>{{ student.parent.present_address }}</td>
                                           <td class="text-right">
                                              <div class="actions">
+                                                {% if student.approval_status != "approved" %}
+                                                <a href="{% url 'approve_student' student.id %}" class="btn btn-sm bg-success-light mr-2">
+                                                   <i class="fas fa-check"></i>
+                                                </a>
+                                                {% endif %}
+                                                {% if student.approval_status != "rejected" %}
+                                                <a href="{% url 'reject_student' student.id %}" class="btn btn-sm bg-warning-light mr-2">
+                                                   <i class="fas fa-times"></i>
+                                                </a>
+                                                {% endif %}
                                                 <a href="{% url 'edit_student' student.id %}" class="btn btn-sm bg-success-light mr-2">
                                                    <i class="fas fa-pen"></i>
                                                 </a>
@@ -93,7 +109,7 @@
                                        </div>
                                     {% empty %}
                                        <tr>
-                                          <td colspan="8" class="text-center">No students found.</td>
+                                          <td colspan="9" class="text-center">No students found.</td>
                                        </tr>
                                     {% endfor %}
                                  </tbody>
