@@ -124,7 +124,7 @@
                      </div>
                      <a class="dropdown-item" href="profile.html">My Profile</a>
                      <a class="dropdown-item" href="inbox.html">Inbox</a>
-                     <a class="dropdown-item" href="login.html">Logout</a>
+                     <a class="dropdown-item" href="{% url 'logout' %}">Logout</a>
                   </div>
                </li>
             </ul>
@@ -156,26 +156,26 @@
                      <li class="submenu">
                         <a href="#"><i class="fas fa-chalkboard-teacher"></i> <span> Teachers</span> <span class="menu-arrow"></span></a>
                         <ul>
-                           <li><a href="teachers.html">Teacher List</a></li>
-                           <li><a href="teacher-details.html">Teacher View</a></li>
-                           <li><a href="add-teacher.html">Teacher Add</a></li>
-                           <li><a href="edit-teacher.html">Teacher Edit</a></li>
+                           <li><a href="{% url 'teacher_list' %}">Teacher List</a></li>
+                           <li><a href="{% url 'teacher_detail_blank' %}">Teacher View</a></li>
+                           <li><a href="{% url 'add_teacher' %}">Teacher Add</a></li>
+                           <li><a href="{% url 'teacher_list' %}">Teacher Edit</a></li>
                         </ul>
                      </li>
                      <li class="submenu">
                         <a href="#"><i class="fas fa-building"></i> <span> Departments</span> <span class="menu-arrow"></span></a>
                         <ul>
-                           <li><a href="departments.html">Department List</a></li>
-                           <li><a href="add-department.html">Department Add</a></li>
-                           <li><a href="edit-department.html">Department Edit</a></li>
+                           <li><a href="{% url 'department_list' %}">Department List</a></li>
+                           <li><a href="{% url 'add_department' %}">Department Add</a></li>
+                           <li><a href="{% url 'department_list' %}">Department Edit</a></li>
                         </ul>
                      </li>
                      <li class="submenu">
                         <a href="#"><i class="fas fa-book-reader"></i> <span> Subjects</span> <span class="menu-arrow"></span></a>
                         <ul>
-                           <li><a href="subjects.html">Subject List</a></li>
-                           <li><a href="add-subject.html">Subject Add</a></li>
-                           <li><a href="edit-subject.html">Subject Edit</a></li>
+                           <li><a href="{% url 'subject_list' %}">Subject List</a></li>
+                           <li><a href="{% url 'add_subject' %}">Subject Add</a></li>
+                           <li><a href="{% url 'subject_list' %}">Subject Edit</a></li>
                         </ul>
                      </li>
                      <li class="menu-title">
@@ -216,10 +216,10 @@
                      <li class="submenu">
                         <a href="#"><i class="fas fa-shield-alt"></i> <span> Authentication </span> <span class="menu-arrow"></span></a>
                         <ul>
-                           <li><a href="login.html">Login</a></li>
-                           <li><a href="register.html">Register</a></li>
-                           <li><a href="forgot-password.html">Forgot Password</a></li>
-                           <li><a href="error-404.html">Error Page</a></li>
+                           <li><a href="{% url 'login' %}">Login</a></li>
+                           <li><a href="{% url 'register' %}">Register</a></li>
+                           <li><a href="{% url 'forgot_password' %}">Forgot Password</a></li>
+                           <li><a href="{% url 'error_404' %}">Error Page</a></li>
                         </ul>
                      </li>
                      <li>

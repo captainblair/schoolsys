@@ -1,6 +1,8 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from .models import Student, Parent
 from django.contrib import messages
+from django.http import HttpResponseForbidden
+from django.shortcuts import get_object_or_404, redirect, render
+
+from .models import Department, Parent, Student, Subject, Teacher
 
 
 def students(request):
@@ -9,6 +11,10 @@ def students(request):
 
 def student_dashboard(request):
     return render(request, "students/student-dashboard.html")
+
+
+def teacher_dashboard(request):
+    return render(request, "students/teacher-dashboard.html")
 
 
 def student_details(request, id=None):
@@ -58,7 +64,7 @@ def add_student(request):
             mother_mobile=mother_mobile,
             mother_email=mother_email,
             present_address=present_address,
-            permanent_address=permanent_address
+            permanent_address=permanent_address,
         )
 
         # create student
@@ -75,7 +81,7 @@ def add_student(request):
             admission_number=admission_number,
             section=section,
             student_image=student_image,
-            parent=parent
+            parent=parent,
         )
 
         messages.success(request, "Student added successfully")
@@ -85,23 +91,267 @@ def add_student(request):
 
 
 def student_list(request):
-    student_list = Student.objects.select_related('parent').all()
+    student_list = Student.objects.select_related("parent").all()
     context = {
-        "students": student_list
+        "students": student_list,
     }
     return render(request, "students/students.html", context)
 
 
-def edit_student(request, id=None):
-    context = {}
+def edit_student(request, id=None, slug=None):
     if id is not None:
-        context["student"] = get_object_or_404(Student, id=id)
+        student = get_object_or_404(Student, id=id)
+    else:
+        student = get_object_or_404(Student, slug=slug)
+
+    parent = student.parent
+
+    if request.method == "POST":
+
+        # student data
+        first_name = request.POST.get("first_name")
+        last_name = request.POST.get("last_name")
+        student_id = request.POST.get("student_id")
+        gender = request.POST.get("gender")
+        date_of_birth = request.POST.get("date_of_birth")
+        student_class = request.POST.get("student_class")
+        religion = request.POST.get("religion")
+        joining_date = request.POST.get("joining_date")
+        mobile_number = request.POST.get("mobile_number")
+        admission_number = request.POST.get("admission_number")
+        section = request.POST.get("section")
+        student_image = request.FILES.get("student_image")
+
+        # parent data
+        parent.father_name = request.POST.get("father_name")
+        parent.father_occupation = request.POST.get("father_occupation")
+        parent.father_mobile = request.POST.get("father_mobile")
+        parent.father_email = request.POST.get("father_email")
+        parent.mother_name = request.POST.get("mother_name")
+        parent.mother_occupation = request.POST.get("mother_occupation")
+        parent.mother_mobile = request.POST.get("mother_mobile")
+        parent.mother_email = request.POST.get("mother_email")
+        parent.present_address = request.POST.get("present_address")
+        parent.permanent_address = request.POST.get("permanent_address")
+        parent.save()
+
+        # update student
+        student.first_name = first_name
+        student.last_name = last_name
+        student.student_id = student_id
+        student.gender = gender
+        student.date_of_birth = date_of_birth
+        student.student_class = student_class
+        student.religion = religion
+        student.joining_date = joining_date
+        student.mobile_number = mobile_number
+        student.admission_number = admission_number
+        student.section = section
+
+        if student_image:
+            student.student_image = student_image
+
+        student.save()
+
+        messages.success(request, "Student updated successfully")
+        return redirect("student_list")
+
+    context = {
+        "student": student,
+        "parent": parent,
+    }
     return render(request, "students/edit-student.html", context)
 
 
-def view_student(request, id):
-    student = get_object_or_404(Student, id=id)
+def view_student(request, id=None, slug=None):
+    if id is not None:
+        student = get_object_or_404(Student, id=id)
+    else:
+        student = get_object_or_404(Student, student_id=slug)
+
     context = {
-        "student": student
+        "student": student,
     }
     return render(request, "students/student-details.html", context)
+
+
+def delete_student(request, id=None, slug=None):
+    if request.method == "POST":
+        if id is not None:
+            student = get_object_or_404(Student, id=id)
+        else:
+            student = get_object_or_404(Student, slug=slug)
+
+        student.delete()
+        messages.success(request, "Student deleted successfully")
+        return redirect("student_list")
+
+    return HttpResponseForbidden("Students can only be deleted with a POST request.")
+
+
+def teacher_list(request):
+    teachers = Teacher.objects.all()
+    return render(request, "students/teachers.html", {"teachers": teachers})
+
+
+def teacher_detail(request, id=None):
+    context = {}
+    if id is not None:
+        context["teacher"] = get_object_or_404(Teacher, id=id)
+    return render(request, "students/teacher-details.html", context)
+
+
+def add_teacher(request):
+    if request.method == "POST":
+        teacher = Teacher.objects.create(
+            teacher_id=request.POST.get("teacher_id"),
+            name=request.POST.get("name"),
+            gender=request.POST.get("gender"),
+            date_of_birth=request.POST.get("date_of_birth"),
+            mobile=request.POST.get("mobile"),
+            joining_date=request.POST.get("joining_date"),
+            qualification=request.POST.get("qualification"),
+            experience=request.POST.get("experience"),
+            username=request.POST.get("username"),
+            email=request.POST.get("email"),
+            address=request.POST.get("address"),
+            city=request.POST.get("city"),
+            state=request.POST.get("state"),
+            zip_code=request.POST.get("zip_code"),
+            country=request.POST.get("country"),
+            teacher_class=request.POST.get("teacher_class"),
+            subject=request.POST.get("subject"),
+            section=request.POST.get("section"),
+            teacher_image=request.FILES.get("teacher_image"),
+        )
+        messages.success(request, "Teacher added successfully")
+        return redirect("teacher_detail", id=teacher.id)
+
+    return render(request, "students/add-teacher.html")
+
+
+def edit_teacher(request, id):
+    teacher = get_object_or_404(Teacher, id=id)
+    if request.method == "POST":
+        teacher.teacher_id = request.POST.get("teacher_id")
+        teacher.name = request.POST.get("name")
+        teacher.gender = request.POST.get("gender")
+        teacher.date_of_birth = request.POST.get("date_of_birth")
+        teacher.mobile = request.POST.get("mobile")
+        teacher.joining_date = request.POST.get("joining_date")
+        teacher.qualification = request.POST.get("qualification")
+        teacher.experience = request.POST.get("experience")
+        teacher.username = request.POST.get("username")
+        teacher.email = request.POST.get("email")
+        teacher.address = request.POST.get("address")
+        teacher.city = request.POST.get("city")
+        teacher.state = request.POST.get("state")
+        teacher.zip_code = request.POST.get("zip_code")
+        teacher.country = request.POST.get("country")
+        teacher.teacher_class = request.POST.get("teacher_class")
+        teacher.subject = request.POST.get("subject")
+        teacher.section = request.POST.get("section")
+        teacher_image = request.FILES.get("teacher_image")
+        if teacher_image:
+            teacher.teacher_image = teacher_image
+        teacher.save()
+        messages.success(request, "Teacher updated successfully")
+        return redirect("teacher_detail", id=teacher.id)
+
+    return render(request, "students/edit-teacher.html", {"teacher": teacher})
+
+
+def delete_teacher(request, id):
+    if request.method != "POST":
+        return HttpResponseForbidden("Teachers can only be deleted with a POST request.")
+
+    teacher = get_object_or_404(Teacher, id=id)
+    teacher.delete()
+    messages.success(request, "Teacher deleted successfully")
+    return redirect("teacher_list")
+
+
+def department_list(request):
+    departments = Department.objects.all()
+    return render(request, "students/departments.html", {"departments": departments})
+
+
+def add_department(request):
+    if request.method == "POST":
+        Department.objects.create(
+            department_id=request.POST.get("department_id"),
+            name=request.POST.get("name"),
+            head_of_department=request.POST.get("head_of_department"),
+            start_date=request.POST.get("start_date"),
+            number_of_students=request.POST.get("number_of_students") or 0,
+        )
+        messages.success(request, "Department added successfully")
+        return redirect("department_list")
+
+    return render(request, "students/add-department.html")
+
+
+def edit_department(request, id):
+    department = get_object_or_404(Department, id=id)
+    if request.method == "POST":
+        department.department_id = request.POST.get("department_id")
+        department.name = request.POST.get("name")
+        department.head_of_department = request.POST.get("head_of_department")
+        department.start_date = request.POST.get("start_date")
+        department.number_of_students = request.POST.get("number_of_students") or 0
+        department.save()
+        messages.success(request, "Department updated successfully")
+        return redirect("department_list")
+
+    return render(request, "students/edit-department.html", {"department": department})
+
+
+def delete_department(request, id):
+    if request.method != "POST":
+        return HttpResponseForbidden("Departments can only be deleted with a POST request.")
+
+    department = get_object_or_404(Department, id=id)
+    department.delete()
+    messages.success(request, "Department deleted successfully")
+    return redirect("department_list")
+
+
+def subject_list(request):
+    subjects = Subject.objects.all()
+    return render(request, "students/subjects.html", {"subjects": subjects})
+
+
+def add_subject(request):
+    if request.method == "POST":
+        Subject.objects.create(
+            subject_id=request.POST.get("subject_id"),
+            name=request.POST.get("name"),
+            subject_class=request.POST.get("subject_class"),
+        )
+        messages.success(request, "Subject added successfully")
+        return redirect("subject_list")
+
+    return render(request, "students/add-subject.html")
+
+
+def edit_subject(request, id):
+    subject = get_object_or_404(Subject, id=id)
+    if request.method == "POST":
+        subject.subject_id = request.POST.get("subject_id")
+        subject.name = request.POST.get("name")
+        subject.subject_class = request.POST.get("subject_class")
+        subject.save()
+        messages.success(request, "Subject updated successfully")
+        return redirect("subject_list")
+
+    return render(request, "students/edit-subject.html", {"subject": subject})
+
+
+def delete_subject(request, id):
+    if request.method != "POST":
+        return HttpResponseForbidden("Subjects can only be deleted with a POST request.")
+
+    subject = get_object_or_404(Subject, id=id)
+    subject.delete()
+    messages.success(request, "Subject deleted successfully")
+    return redirect("subject_list")

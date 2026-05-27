@@ -11,7 +11,7 @@
 <div class="col-sm-12">
 <h3 class="page-title">Student Details</h3>
 <ul class="breadcrumb">
-<li class="breadcrumb-item"><a href="students.html">Student</a></li>
+<li class="breadcrumb-item"><a href="{% url 'student_list' %}">Student</a></li>
 <li class="breadcrumb-item active">Student Details</li>
 </ul>
 </div>
@@ -24,32 +24,36 @@
 <div class="about-info">
 <h4>About Me</h4>
 <div class="media mt-3">
-<img src="assets/img/user.jpg" class="mr-3" alt="...">
+{% if student.student_image %}
+<img src="{{ student.student_image.url }}" class="mr-3" alt="{{ student.first_name }} {{ student.last_name }}">
+{% else %}
+<img src="{% static 'img/profiles/avatar-01.jpg' %}" class="mr-3" alt="{{ student.first_name }} {{ student.last_name }}">
+{% endif %}
 <div class="media-body">
 <ul>
 <li>
 <span class="title-span">Full Name : </span>
-<span class="info-span">Daisy Parks</span>
+<span class="info-span">{{ student.first_name }} {{ student.last_name }}</span>
 </li>
 <li>
 <span class="title-span">Department : </span>
-<span class="info-span">Computer Science</span>
+<span class="info-span">{{ student.student_class }} {{ student.section }}</span>
 </li>
 <li>
 <span class="title-span">Mobile : </span>
-<span class="info-span">+91 89657 48512</span>
+<span class="info-span">{{ student.mobile_number }}</span>
 </li>
 <li>
 <span class="title-span">Email : </span>
-<span class="info-span"><a href="https://preschool.dreamguystech.com/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="7216131b010b32151f131b1e5c111d1f">[email&#160;protected]</a></span>
+<span class="info-span"><a href="mailto:{{ student.parent.father_email }}">{{ student.parent.father_email }}</a></span>
 </li>
 <li>
 <span class="title-span">Gender : </span>
-<span class="info-span">Male</span>
+<span class="info-span">{{ student.gender }}</span>
 </li>
 <li>
 <span class="title-span">DOB : </span>
-<span class="info-span">22 Apr 1995</span>
+<span class="info-span">{{ student.date_of_birth|date:"d M Y" }}</span>
 </li>
 </ul>
 </div>
@@ -82,13 +86,13 @@
 <div class="row mt-2">
 <div class="col-md-12">
 <h5>Permanent Address</h5>
-<p>480, Estern Avenue, Courtage area, New York</p>
+<p>{{ student.parent.permanent_address }}</p>
 </div>
 </div>
 <div class="row mt-2">
 <div class="col-md-12">
 <h5>Present Address</h5>
-<p>480, Estern Avenue, Courtage area, New York</p>
+<p>{{ student.parent.present_address }}</p>
 </div>
 </div>
 </div>
@@ -191,16 +195,12 @@
 </div>
 
 
-<script data-cfasync="false" src="../cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
-<script src="{% static 'assets/js/popper.min.js' %}"></script>
-<script src="{% static 'assets/plugins/bootstrap/js/bootstrap.min.js' %}"></script>
+<script src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'js/popper.min.js' %}"></script>
+<script src="{% static 'plugins/bootstrap/js/bootstrap.min.js' %}"></script>
 
-<script src="{% static 'assets/plugins/slimscroll/jquery.slimscroll.min.js' %}"></script>
+<script src="{% static 'plugins/slimscroll/jquery.slimscroll.min.js' %}"></script>
 
-<script src="{% static 'assets/js/script.js' %}"></script>
-</body>
-
-<!-- Mirrored from preschool.dreamguystech.com/html-template/student-details.html by HTTrack Website Copier/3.x [XR&CO'2014], Thu, 28 Oct 2021 11:11:50 GMT -->
-</html>
+<script src="{% static 'js/script.js' %}"></script>
 
 {%endblock%}

@@ -50,3 +50,69 @@ class Student(models.Model):
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.student_id})"
+
+
+class Teacher(models.Model):
+    teacher_id = models.CharField(max_length=100)
+    name = models.CharField(max_length=150)
+    gender = models.CharField(
+        max_length=10,
+        choices=[('Male', 'Male'), ('Female', 'Female'), ('Other', 'Other')]
+    )
+    date_of_birth = models.DateField()
+    mobile = models.CharField(max_length=100)
+    joining_date = models.DateField()
+    qualification = models.CharField(max_length=150)
+    experience = models.CharField(max_length=100)
+    username = models.CharField(max_length=100)
+    email = models.EmailField(max_length=100)
+    address = models.TextField()
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=100)
+    zip_code = models.CharField(max_length=20)
+    country = models.CharField(max_length=100)
+    teacher_class = models.CharField(max_length=100, blank=True)
+    subject = models.CharField(max_length=100, blank=True)
+    section = models.CharField(max_length=15, blank=True)
+    teacher_image = models.ImageField(upload_to='teacher/', blank=True)
+    slug = models.SlugField(max_length=255, unique=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(f"{self.name} {self.teacher_id}")
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.name} ({self.teacher_id})"
+
+
+class Department(models.Model):
+    department_id = models.CharField(max_length=100)
+    name = models.CharField(max_length=150)
+    head_of_department = models.CharField(max_length=150)
+    start_date = models.DateField()
+    number_of_students = models.PositiveIntegerField(default=0)
+    slug = models.SlugField(max_length=255, unique=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(f"{self.name} {self.department_id}")
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+
+class Subject(models.Model):
+    subject_id = models.CharField(max_length=100)
+    name = models.CharField(max_length=150)
+    subject_class = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=255, unique=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(f"{self.name} {self.subject_id}")
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.name} ({self.subject_class})"
