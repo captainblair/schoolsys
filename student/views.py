@@ -1,7 +1,8 @@
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.http import Http404, HttpResponse, HttpResponseForbidden
+from django.db.models import Q
+from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from html import escape
@@ -112,6 +113,12 @@ def _current_student(request):
     if not _is_student(request.user):
         return None
     return Student.objects.filter(user=request.user).first()
+
+
+def _current_teacher(request):
+    if not _is_teacher(request.user):
+        return None
+    return Teacher.objects.filter(user=request.user).first()
 
 
 def _select_options(values):
@@ -226,6 +233,86 @@ def students(request):
     return student_list(request)
 
 
+def _token_filter(query, fields):
+    filters = Q()
+    for token in query.split():
+        token_filter = Q()
+        for field in fields:
+            token_filter |= Q(**{f"{field}__icontains": token})
+        filters &= token_filter
+    return filters
+
+
+def _search_results_for_user(user, query, limit_per_type=10):
+    results = []
+    if not query:
+        return results
+
+    student_fields = ["first_name", "last_name", "student_id", "admission_number", "student_class", "section"]
+    student_matches = _student_queryset_for(user).filter(_token_filter(query, student_fields))[:limit_per_type]
+    for student in student_matches:
+        results.append(
+            {
+                "type": "Student",
+                "title": f"{student.first_name} {student.last_name}",
+                "description": f"{student.student_id} - Class {student.student_class}",
+                "url": reverse("view_student", args=[student.id]),
+            }
+        )
+
+    teacher_fields = ["name", "teacher_id", "subject", "teacher_class", "section"]
+    teacher_matches = _teacher_queryset_for(user).filter(_token_filter(query, teacher_fields))[:limit_per_type]
+    for teacher in teacher_matches:
+        results.append(
+            {
+                "type": "Teacher",
+                "title": teacher.name,
+                "description": f"{teacher.teacher_id} - {teacher.subject or 'Teacher'}",
+                "url": reverse("teacher_detail", args=[teacher.id]),
+            }
+        )
+
+    if _is_admin(user) or _is_student(user) or _is_teacher(user):
+        for fee in Fee.objects.filter(_token_filter(query, ["name", "fee_id", "student_class"]))[:limit_per_type]:
+            results.append({"type": "Fee", "title": fee.name, "description": f"Class {fee.student_class} - {fee.amount}", "url": reverse("fee_list")})
+        for exam in Exam.objects.filter(_token_filter(query, ["name", "subject", "student_class"]))[:limit_per_type]:
+            results.append({"type": "Exam", "title": exam.name, "description": f"{exam.subject} - {exam.exam_date}", "url": reverse("exam_list")})
+        for event in Event.objects.filter(_token_filter(query, ["title", "event_type", "description"]))[:limit_per_type]:
+            results.append({"type": "Event", "title": event.title, "description": f"{event.event_type} - {event.start_date}", "url": reverse("event_list")})
+        for book in Book.objects.filter(_token_filter(query, ["title", "author", "subject", "book_id"]))[:limit_per_type]:
+            results.append({"type": "Library", "title": book.title, "description": f"{book.author} - {book.available} available", "url": reverse("library_list")})
+
+    return results
+
+
+@login_required
+def my_profile(request):
+    student = Student.objects.filter(user=request.user).select_related("parent").first()
+    teacher = Teacher.objects.filter(user=request.user).first()
+    return render(
+        request,
+        "students/profile.html",
+        {
+            "student": student,
+            "teacher": teacher,
+        },
+    )
+
+
+@login_required
+def site_search(request):
+    query = request.GET.get("q", "").strip()
+    results = _search_results_for_user(request.user, query)
+    return render(request, "students/search-results.html", {"query": query, "results": results})
+
+
+@login_required
+def search_suggestions(request):
+    query = request.GET.get("q", "").strip()
+    results = _search_results_for_user(request.user, query, limit_per_type=5)[:8]
+    return JsonResponse({"results": results})
+
+
 @login_required
 def student_dashboard(request):
     student = _student_queryset_for(request.user).first()
@@ -262,7 +349,20 @@ def teacher_dashboard(request):
     teacher = _teacher_queryset_for(request.user).first()
     if _is_teacher(request.user) and teacher is None:
         return redirect("complete_teacher_profile")
-    return render(request, "students/teacher-dashboard.html", {"teacher": teacher})
+    timetable_entries = TimeTableEntry.objects.select_related("teacher").none()
+    if teacher is not None:
+        timetable_entries = TimeTableEntry.objects.select_related("teacher").filter(teacher=teacher)
+    return render(
+        request,
+        "students/teacher-dashboard.html",
+        {
+            "teacher": teacher,
+            "class_count": timetable_entries.values("student_class").distinct().count(),
+            "subject_count": timetable_entries.values("subject").distinct().count(),
+            "timetable_entries": timetable_entries.order_by("day", "start_time")[:8],
+            "event_count": Event.objects.count(),
+        },
+    )
 
 
 @login_required

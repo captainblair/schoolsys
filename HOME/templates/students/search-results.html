@@ -1,0 +1,53 @@
+{% extends 'HOME/base.html' %}
+{% load static %}
+{% block body %}
+<div class="page-wrapper">
+<div class="content container-fluid">
+<div class="page-header">
+<div class="row">
+<div class="col">
+<h3 class="page-title">Search</h3>
+<ul class="breadcrumb">
+<li class="breadcrumb-item"><a href="{% if current_user_is_teacher %}{% url 'teacher-dashboard' %}{% elif current_user_is_student %}{% url 'student-dashboard' %}{% else %}{% url 'index' %}{% endif %}">Dashboard</a></li>
+<li class="breadcrumb-item active">Search</li>
+</ul>
+</div>
+</div>
+</div>
+
+<div class="card">
+<div class="card-body">
+<form action="{% url 'site_search' %}" method="get" class="mb-4">
+<div class="input-group">
+<input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search students, teachers, fees, exams, events, or books">
+<div class="input-group-append">
+<button class="btn btn-primary" type="submit"><i class="fas fa-search"></i></button>
+</div>
+</div>
+</form>
+
+{% if query %}
+<h5 class="card-title">Results for "{{ query }}"</h5>
+{% if results %}
+<div class="list-group">
+{% for result in results %}
+<a class="list-group-item list-group-item-action" href="{{ result.url }}">
+<div class="d-flex w-100 justify-content-between">
+<h6 class="mb-1">{{ result.title }}</h6>
+<small>{{ result.type }}</small>
+</div>
+<p class="mb-0">{{ result.description }}</p>
+</a>
+{% endfor %}
+</div>
+{% else %}
+<p class="mb-0">No matching records found.</p>
+{% endif %}
+{% else %}
+<p class="mb-0">Type a search term to find records.</p>
+{% endif %}
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
