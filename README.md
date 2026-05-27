@@ -27,6 +27,8 @@ The project currently includes student and teacher profiles, role-based dashboar
 - [Development Notes](#development-notes)
 - [Known Limitations and Future Improvements](#known-limitations-and-future-improvements)
 
+For production hosting, see [DEPLOYMENT_RENDER.md](DEPLOYMENT_RENDER.md).
+
 ## Project Purpose
 
 Managing student information manually can become slow, inconsistent, and unsafe as a school grows. This project provides a structured Django application where school staff can manage academic and administrative records from one place.
@@ -188,6 +190,11 @@ The pinned Python dependencies are in `requirements.txt`:
 ```txt
 Django==6.0.2
 Pillow==12.0.0
+dj-database-url==3.0.1
+django-cloudinary-storage==0.3.0
+gunicorn==23.0.0
+psycopg[binary]==3.2.13
+whitenoise==6.12.0
 ```
 
 ## Project Structure
@@ -211,7 +218,7 @@ HOME/
 ├── requirements.txt
 ├── .gitignore
 ├── .env                      # Local secrets, ignored by Git
-└── .env.example              # Local sample env file, ignored by Git in this repo
+└── .env.example              # Local sample env file with placeholder values
 ```
 
 ## Application Modules
@@ -782,10 +789,16 @@ http://127.0.0.1:8000/
 
 ## Environment Variables
 
-The project currently reads email-related settings from `.env`.
+The project reads local settings from `.env` when present. In production, set these values through the hosting provider's environment variable UI.
 
 | Variable | Purpose |
 | --- | --- |
+| `SECRET_KEY` | Django secret key |
+| `DEBUG` | Use `True` locally and `False` in production |
+| `ALLOWED_HOSTS` | Comma-separated hostnames allowed by Django |
+| `CSRF_TRUSTED_ORIGINS` | Comma-separated trusted HTTPS origins when needed |
+| `DATABASE_URL` | Production database URL; local SQLite is used when empty |
+| `CLOUDINARY_URL` | Cloudinary media storage URL for uploaded images |
 | `EMAIL_BACKEND` | Django email backend |
 | `EMAIL_HOST` | SMTP host |
 | `EMAIL_PORT` | SMTP port |
@@ -794,22 +807,11 @@ The project currently reads email-related settings from `.env`.
 | `EMAIL_HOST_PASSWORD` | SMTP password or app password |
 | `DEFAULT_FROM_EMAIL` | Sender email address |
 
-Security recommendation: move `SECRET_KEY`, `DEBUG`, and `ALLOWED_HOSTS` into environment variables before deploying the project.
+For Render deployment, see [DEPLOYMENT_RENDER.md](DEPLOYMENT_RENDER.md).
 
 ## Database and Migrations
 
-The project uses SQLite by default:
-
-```python
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
-```
-
-SQLite is convenient for local development, but production deployments should use a more robust database such as PostgreSQL or MySQL.
+The project uses SQLite by default for local development. If `DATABASE_URL` is set, Django uses that database instead, which is how the Render deployment connects to Postgres.
 
 The local database file `db.sqlite3` is ignored by Git. This is important because a database can contain private user data, emails, passwords hashes, student records, guardian information, and operational school data.
 
@@ -834,7 +836,7 @@ This includes:
 
 ### Media Files
 
-Uploaded files are stored in:
+In local development, uploaded files are stored in:
 
 ```text
 media/
@@ -852,7 +854,7 @@ Teacher images are uploaded to:
 media/teacher/
 ```
 
-In development, media files are served by `HOME/urls.py` when `DEBUG` is true.
+In development, media files are served by `HOME/urls.py` when `DEBUG` is true. In production, set `CLOUDINARY_URL` so uploaded student and teacher images are stored in Cloudinary instead of Render's temporary filesystem.
 
 ## Important URLs
 
@@ -948,9 +950,9 @@ Registered models include:
 
 ### Environment Files
 
-`.env` and `.env.example` are ignored by Git in this repository.
+`.env` is ignored by Git in this repository.
 
-They should never be committed because they can contain:
+It should never be committed because it can contain:
 
 - Email credentials.
 - API keys.
@@ -970,15 +972,15 @@ The app uses Django's password hashing and validation. Plain-text passwords shou
 
 ### Debug Mode
 
-`DEBUG = True` is currently set in `settings.py`. This is fine for local development only. It should be disabled in production.
+`DEBUG=True` is fine for local development only. Set `DEBUG=False` in production.
 
 ### Secret Key
 
-The current `SECRET_KEY` is hardcoded. For production, it should be moved into environment variables.
+The production `SECRET_KEY` should come from environment variables. Render can generate it automatically when using `render.yaml`.
 
 ### Allowed Hosts
 
-`ALLOWED_HOSTS` is currently empty. Production deployments must configure allowed hosts.
+Production deployments must configure `ALLOWED_HOSTS`. The included `render.yaml` sets `.onrender.com` and the settings file also trusts Render's generated external hostname.
 
 ## Development Notes
 
@@ -1034,14 +1036,11 @@ The project is functional for local development and learning, but several improv
 
 Recommended improvements:
 
-- Move `SECRET_KEY`, `DEBUG`, and `ALLOWED_HOSTS` to environment variables.
 - Explicitly configure `AUTH_USER_MODEL` before starting a new production database if the custom user model should be used.
 - Add automated tests for authentication, permissions, CRUD flows, profile approval, and search.
 - Add pagination for large student, teacher, and management lists.
 - Add stronger form validation and Django `ModelForm` usage.
 - Add audit logs for create, update, delete, approve, and reject actions.
-- Add production database support such as PostgreSQL.
-- Add deployment documentation.
 - Add role-specific UI cleanup so each user only sees actions they can actually perform.
 - Add richer student academic records such as grades, attendance, and report cards.
 - Add parent or guardian login if the school wants parent access.
