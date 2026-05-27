@@ -1,9 +1,12 @@
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseForbidden
+from django.http import Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from html import escape
+from io import BytesIO
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from home_auth.notifications import create_notification, notify_admins
 from .models import (
@@ -328,6 +331,146 @@ def student_list(request):
         "students": student_list,
     }
     return render(request, "students/students.html", context)
+
+
+def _student_export_rows():
+    students = Student.objects.select_related("parent").order_by("student_id", "first_name", "last_name")
+    rows = []
+    for student in students:
+        rows.append(
+            [
+                student.student_id,
+                f"{student.first_name} {student.last_name}",
+                f"{student.student_class} {student.section}".strip(),
+                student.date_of_birth.strftime("%Y-%m-%d") if student.date_of_birth else "",
+                student.parent.father_name if student.parent_id else "",
+                student.parent.mother_name if student.parent_id else "",
+                student.mobile_number,
+                student.get_approval_status_display(),
+                student.parent.present_address if student.parent_id else "",
+            ]
+        )
+    return rows
+
+
+def _xls_response(headers, rows):
+    table_headers = "".join(f"<th>{escape(header)}</th>" for header in headers)
+    table_rows = "".join(
+        "<tr>" + "".join(f"<td>{escape(str(value))}</td>" for value in row) + "</tr>"
+        for row in rows
+    )
+    content = (
+        "<html><head><meta charset=\"utf-8\"></head><body>"
+        "<table border=\"1\"><thead><tr>"
+        f"{table_headers}"
+        "</tr></thead><tbody>"
+        f"{table_rows}"
+        "</tbody></table></body></html>"
+    )
+    response = HttpResponse(content, content_type="application/vnd.ms-excel")
+    response["Content-Disposition"] = 'attachment; filename="students.xls"'
+    return response
+
+
+def _docx_response(headers, rows):
+    def cell(value):
+        return f"<w:tc><w:p><w:r><w:t>{escape(str(value))}</w:t></w:r></w:p></w:tc>"
+
+    table = "<w:tbl>"
+    table += "<w:tr>" + "".join(cell(header) for header in headers) + "</w:tr>"
+    for row in rows:
+        table += "<w:tr>" + "".join(cell(value) for value in row) + "</w:tr>"
+    table += "</w:tbl>"
+    document_xml = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        "<w:body>"
+        "<w:p><w:r><w:t>Student List</w:t></w:r></w:p>"
+        f"{table}"
+        "<w:sectPr/></w:body></w:document>"
+    )
+    content_types = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        '<Default Extension="xml" ContentType="application/xml"/>'
+        '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+        "</Types>"
+    )
+    rels = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
+        "</Relationships>"
+    )
+    buffer = BytesIO()
+    with ZipFile(buffer, "w", ZIP_DEFLATED) as docx:
+        docx.writestr("[Content_Types].xml", content_types)
+        docx.writestr("_rels/.rels", rels)
+        docx.writestr("word/document.xml", document_xml)
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+    response["Content-Disposition"] = 'attachment; filename="students.docx"'
+    return response
+
+
+def _pdf_response(headers, rows):
+    def pdf_escape(value):
+        return str(value).replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+    lines = ["Student List", " | ".join(headers)]
+    for row in rows:
+        lines.append(" | ".join(str(value) for value in row))
+    text_commands = ["BT", "/F1 9 Tf", "40 790 Td", "12 TL"]
+    for line in lines[:58]:
+        text_commands.append(f"({pdf_escape(line[:115])}) Tj")
+        text_commands.append("T*")
+    text_commands.append("ET")
+    stream = "\n".join(text_commands).encode("latin-1", errors="replace")
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream + b"\nendstream",
+    ]
+    pdf = BytesIO()
+    pdf.write(b"%PDF-1.4\n")
+    offsets = [0]
+    for index, obj in enumerate(objects, start=1):
+        offsets.append(pdf.tell())
+        pdf.write(f"{index} 0 obj\n".encode())
+        pdf.write(obj)
+        pdf.write(b"\nendobj\n")
+    xref_offset = pdf.tell()
+    pdf.write(f"xref\n0 {len(objects) + 1}\n".encode())
+    pdf.write(b"0000000000 65535 f \n")
+    for offset in offsets[1:]:
+        pdf.write(f"{offset:010d} 00000 n \n".encode())
+    pdf.write(
+        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF".encode()
+    )
+    response = HttpResponse(pdf.getvalue(), content_type="application/pdf")
+    response["Content-Disposition"] = 'attachment; filename="students.pdf"'
+    return response
+
+
+def download_students(request, file_format):
+    denied = _require_admin(request)
+    if denied:
+        return denied
+
+    headers = ["ID", "Name", "Class", "DOB", "Father", "Mother", "Mobile", "Status", "Address"]
+    rows = _student_export_rows()
+    if file_format == "xls":
+        return _xls_response(headers, rows)
+    if file_format == "docx":
+        return _docx_response(headers, rows)
+    if file_format == "pdf":
+        return _pdf_response(headers, rows)
+    raise Http404("Unsupported download format.")
 
 
 def edit_student(request, id=None, slug=None):

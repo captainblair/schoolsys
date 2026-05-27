@@ -22,8 +22,14 @@ Version      : 1.0
 	function init() {
 		var $this = Sidemenu;
 		$('#sidebar-menu a').on('click', function(e) {
-			if($(this).parent().hasClass('submenu')) {
+			var isSubmenu = $(this).parent().hasClass('submenu');
+			var isPlaceholder = $(this).attr('href') === '#' || $(this).attr('href') === 'javascript:void(0);';
+			var clickedArrow = $(e.target).closest('.menu-arrow').length > 0;
+			if(isSubmenu && (isPlaceholder || clickedArrow)) {
 				e.preventDefault();
+			}
+			if(isSubmenu && !isPlaceholder && !clickedArrow) {
+				return true;
 			}
 			if(!$(this).hasClass('subdrop')) {
 				$('ul', $(this).parents('ul:first')).slideUp(350);

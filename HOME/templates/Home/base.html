@@ -119,8 +119,8 @@
                      <li class="menu-title">
                         <span>Main Menu</span>
                      </li>
-                     <li class="submenu active">
-                        <a href="#"><i class="fas fa-user-graduate"></i> <span> Dashboard</span> <span class="menu-arrow"></span></a>
+                     <li class="submenu active sidebar-expanded">
+                        <a href="{% if current_user_is_admin %}{% url 'index' %}{% elif current_user_is_teacher %}{% url 'teacher-dashboard' %}{% elif current_user_is_student %}{% url 'student-dashboard' %}{% else %}#{% endif %}"><i class="fas fa-user-graduate"></i> <span> Dashboard</span> <span class="menu-arrow"></span></a>
                         <ul>
                            {% if current_user_is_admin %}
                            <li><a href="{% url 'index' %}" class="active">Admin Dashboard</a></li>
@@ -140,13 +140,13 @@
                      <li>
                         <a href="{% url 'profile_approvals' %}"><i class="fas fa-user-check"></i> <span>Pending Approvals</span></a>
                      </li>
-                     <li class="submenu">
-                        <a href="#"><i class="fas fa-user-graduate"></i> <span> Students</span> <span class="menu-arrow"></span></a>
+                     <li class="submenu sidebar-expanded">
+                        <a href="{% url 'student_list' %}"><i class="fas fa-user-graduate"></i> <span> Students</span> <span class="menu-arrow"></span></a>
                         <ul>
                            <li><a href="{% url 'student_list' %}">Student List</a></li>
-                           <li><a href="{% url 'student-details' %}">Student View</a></li>
+                           <li><a href="{% url 'student_list' %}">Student View</a></li>
                            <li><a href="{% url 'add-student' %}">Student Add</a></li>
-                           <li><a href="{% url 'edit-student' %}">Student Edit</a></li>
+                           <li><a href="{% url 'student_list' %}">Student Edit</a></li>
                         </ul>
                      </li>
                      {% elif current_user_is_student %}
@@ -155,8 +155,8 @@
                      </li>
                      {% endif %}
                      {% if current_user_is_admin %}
-                     <li class="submenu">
-                        <a href="#"><i class="fas fa-chalkboard-teacher"></i> <span> Teachers</span> <span class="menu-arrow"></span></a>
+                     <li class="submenu sidebar-expanded">
+                        <a href="{% url 'teacher_list' %}"><i class="fas fa-chalkboard-teacher"></i> <span> Teachers</span> <span class="menu-arrow"></span></a>
                         <ul>
                            <li><a href="{% url 'teacher_list' %}">Teacher List</a></li>
                            <li><a href="{% url 'teacher_detail_blank' %}">Teacher View</a></li>
@@ -170,16 +170,16 @@
                      </li>
                      {% endif %}
                      {% if current_user_is_admin %}
-                     <li class="submenu">
-                        <a href="#"><i class="fas fa-building"></i> <span> Departments</span> <span class="menu-arrow"></span></a>
+                     <li class="submenu sidebar-expanded">
+                        <a href="{% url 'department_list' %}"><i class="fas fa-building"></i> <span> Departments</span> <span class="menu-arrow"></span></a>
                         <ul>
                            <li><a href="{% url 'department_list' %}">Department List</a></li>
                            <li><a href="{% url 'add_department' %}">Department Add</a></li>
                            <li><a href="{% url 'department_list' %}">Department Edit</a></li>
                         </ul>
                      </li>
-                     <li class="submenu">
-                        <a href="#"><i class="fas fa-book-reader"></i> <span> Subjects</span> <span class="menu-arrow"></span></a>
+                     <li class="submenu sidebar-expanded">
+                        <a href="{% url 'subject_list' %}"><i class="fas fa-book-reader"></i> <span> Subjects</span> <span class="menu-arrow"></span></a>
                         <ul>
                            <li><a href="{% url 'subject_list' %}">Subject List</a></li>
                            <li><a href="{% url 'add_subject' %}">Subject Add</a></li>
@@ -191,8 +191,8 @@
                         <span>Management</span>
                      </li>
                      {% if current_user_is_admin %}
-                     <li class="submenu">
-                        <a href="#"><i class="fas fa-file-invoice-dollar"></i> <span> Accounts</span> <span class="menu-arrow"></span></a>
+                     <li class="submenu sidebar-expanded">
+                        <a href="{% url 'fee_collection_list' %}"><i class="fas fa-file-invoice-dollar"></i> <span> Accounts</span> <span class="menu-arrow"></span></a>
                         <ul>
                            <li><a href="{% url 'fee_collection_list' %}">Fees Collection</a></li>
                            <li><a href="{% url 'expense_list' %}">Expenses</a></li>

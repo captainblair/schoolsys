@@ -1766,6 +1766,12 @@ footer p {
 .sidebar-menu ul ul {
 	display: none;
 }
+.sidebar-menu li.sidebar-expanded > ul {
+	display: none;
+}
+.sidebar-menu li.sidebar-expanded > a.subdrop + ul {
+	display: block;
+}
 .sidebar-menu ul ul ul a {
 	padding-left: 65px;
 }

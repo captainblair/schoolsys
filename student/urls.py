@@ -16,6 +16,7 @@ urlpatterns = [
     path("teachers/complete-profile/", views.complete_teacher_profile, name="complete_teacher_profile"),
     path("students/view/", views.student_details, name="student-details"),
     path("students/view/<int:id>/", views.view_student, name="view_student"),
+    path("students/download/<str:file_format>/", views.download_students, name="download_students"),
     path("students/add/", views.add_student, name="add-student"),
     path("students/edit/", views.edit_student, name="edit-student"),
     path("students/edit/<int:id>/", views.edit_student, name="edit_student"),

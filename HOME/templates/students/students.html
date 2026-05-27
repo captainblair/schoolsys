@@ -14,7 +14,16 @@
                         </ul>
                      </div>
                      <div class="col-auto text-right float-right ml-auto">
-                        <a href="#" class="btn btn-outline-primary mr-2"><i class="fas fa-download"></i> Download</a>
+                        <div class="btn-group mr-2">
+                           <button type="button" class="btn btn-outline-primary dropdown-toggle" data-toggle="dropdown">
+                              <i class="fas fa-download"></i> Download
+                           </button>
+                           <div class="dropdown-menu dropdown-menu-right">
+                              <a class="dropdown-item" href="{% url 'download_students' 'xls' %}">Excel (.xls)</a>
+                              <a class="dropdown-item" href="{% url 'download_students' 'docx' %}">Word (.docx)</a>
+                              <a class="dropdown-item" href="{% url 'download_students' 'pdf' %}">PDF (.pdf)</a>
+                           </div>
+                        </div>
                         <a href="{% url 'add-student' %}" class="btn btn-primary"><i class="fas fa-plus"></i></a>
                      </div>
                   </div>
