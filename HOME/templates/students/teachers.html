@@ -19,6 +19,9 @@
       </div>
       <div class="row">
          <div class="col-sm-12">
+            {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %}">{{ message }}</div>
+            {% endfor %}
             <div class="card card-table">
                <div class="card-body">
                   <div class="table-responsive">
@@ -47,7 +50,7 @@
                                        {% if teacher.teacher_image %}
                                           <img class="avatar-img rounded-circle" src="{{ teacher.teacher_image.url }}" alt="Teacher Image">
                                        {% else %}
-                                          <img class="avatar-img rounded-circle" src="{% static 'img/profiles/avatar-01.jpg' %}" alt="Teacher Image">
+                                          <span class="avatar-placeholder avatar-placeholder-sm"><i class="fas fa-user"></i></span>
                                        {% endif %}
                                     </a>
                                     <a href="{% url 'teacher_detail' teacher.id %}">{{ teacher.name }}</a>

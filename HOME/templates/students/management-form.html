@@ -1,0 +1,62 @@
+{% extends 'HOME/base.html' %}
+{% load static %}
+{% block body %}
+<div class="page-wrapper">
+<div class="content container-fluid">
+<div class="page-header">
+<div class="row align-items-center">
+<div class="col">
+<h3 class="page-title">{{ title }}</h3>
+<ul class="breadcrumb">
+<li class="breadcrumb-item"><a href="{% url list_url %}">{{ list_title }}</a></li>
+<li class="breadcrumb-item active">{{ title }}</li>
+</ul>
+</div>
+</div>
+</div>
+
+{% for message in messages %}
+<div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %}">{{ message }}</div>
+{% endfor %}
+
+<div class="row">
+<div class="col-sm-12">
+<div class="card">
+<div class="card-body">
+<form method="POST">
+{% csrf_token %}
+<div class="row">
+<div class="col-12">
+<h5 class="form-title"><span>{{ form_title }}</span></h5>
+</div>
+{% for field in fields %}
+<div class="col-12 col-sm-6">
+<div class="form-group">
+<label>{{ field.label }}</label>
+{% if field.type == "select" %}
+<select class="form-control" name="{{ field.name }}" {% if field.required %}required{% endif %}>
+<option value="">Select {{ field.label }}</option>
+{% for option in field.options %}
+<option value="{{ option.value }}">{{ option.label }}</option>
+{% endfor %}
+</select>
+{% elif field.type == "textarea" %}
+<textarea class="form-control" name="{{ field.name }}" {% if field.required %}required{% endif %}></textarea>
+{% else %}
+<input type="{{ field.type }}" class="form-control" name="{{ field.name }}" {% if field.required %}required{% endif %}>
+{% endif %}
+</div>
+</div>
+{% endfor %}
+<div class="col-12">
+<button type="submit" class="btn btn-primary">Submit</button>
+</div>
+</div>
+</form>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}

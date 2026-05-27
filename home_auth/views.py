@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 from django.core.mail import BadHeaderError, send_mail
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -18,6 +19,7 @@ from .notifications import create_notification
 
 User = get_user_model()
 ROLE_CHOICES = ["student", "teacher", "admin"]
+PUBLIC_ROLE_CHOICES = ["student", "teacher"]
 
 
 def _build_absolute_url(request, view_name, *args):
@@ -48,6 +50,29 @@ def _dashboard_for_user(user):
         return "teacher-dashboard"
     if getattr(user, "is_student", False) or "student" in group_names:
         return "student-dashboard"
+    return None
+
+
+def _is_admin(user):
+    if not user.is_authenticated:
+        return False
+    group_names = set(user.groups.values_list("name", flat=True))
+    return getattr(user, "is_admin", False) or user.is_staff or user.is_superuser or "admin" in group_names
+
+
+def _role_for_user(user):
+    if getattr(user, "is_admin", False) or user.is_staff or user.is_superuser or user.groups.filter(name="admin").exists():
+        return "admin"
+    if getattr(user, "is_teacher", False) or user.groups.filter(name="teacher").exists():
+        return "teacher"
+    return "student"
+
+
+def _require_admin(request):
+    if not request.user.is_authenticated:
+        return redirect("login")
+    if not _is_admin(request.user):
+        return HttpResponseForbidden("Only administrators can access this page.")
     return None
 
 
@@ -103,7 +128,7 @@ def register_view(request):
         password = request.POST.get("password")
         confirm_password = request.POST.get("confirm_password")
 
-        if not first_name or not last_name or not email or not password or role not in ROLE_CHOICES:
+        if not first_name or not last_name or not email or not password or role not in PUBLIC_ROLE_CHOICES:
             messages.error(request, "Please fill in all required fields")
             return render(request, "Home/register.html")
 
@@ -147,6 +172,71 @@ def register_view(request):
         return redirect(_next_step_for_user(user) or "index")
 
     return render(request, "Home/register.html")
+
+
+@login_required
+def user_role_list_view(request):
+    denied = _require_admin(request)
+    if denied:
+        return denied
+
+    users = [
+        {
+            "account": account,
+            "role": _role_for_user(account),
+        }
+        for account in User.objects.order_by("first_name", "last_name", "email", "username")
+    ]
+    return render(request, "Home/user-roles.html", {"users": users})
+
+
+@login_required
+def update_user_role_view(request, id):
+    denied = _require_admin(request)
+    if denied:
+        return denied
+
+    if request.method != "POST":
+        return HttpResponseForbidden("User roles can only be changed with a POST request.")
+
+    target_user = get_object_or_404(User, id=id)
+    role = request.POST.get("role", "").strip().lower()
+
+    if role not in ROLE_CHOICES:
+        messages.error(request, "Invalid role selected.")
+        return redirect("user_roles")
+
+    if target_user == request.user and role != "admin":
+        messages.error(request, "You cannot remove your own admin access.")
+        return redirect("user_roles")
+    if target_user.is_superuser and role != "admin":
+        messages.error(request, "Superuser accounts must be changed from Django admin.")
+        return redirect("user_roles")
+
+    _apply_role(target_user, role)
+    update_fields = []
+    if hasattr(target_user, "role"):
+        update_fields.append("role")
+    if hasattr(target_user, "is_student"):
+        update_fields.append("is_student")
+    if hasattr(target_user, "is_teacher"):
+        update_fields.append("is_teacher")
+    if hasattr(target_user, "is_admin"):
+        update_fields.append("is_admin")
+    if role != "admin" and target_user.is_staff:
+        target_user.is_staff = False
+        update_fields.append("is_staff")
+    if update_fields:
+        target_user.save(update_fields=update_fields)
+
+    create_notification(
+        target_user,
+        "Role updated",
+        f"Your account role is now {role.title()}.",
+        reverse(_dashboard_for_user(target_user) or "index"),
+    )
+    messages.success(request, f"{target_user} is now {role.title()}. Profile approval is handled from Pending Approvals.")
+    return redirect("user_roles")
 
 
 def forgot_password_view(request):

@@ -145,3 +145,146 @@ class Subject(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.subject_class})"
+
+
+class Holiday(models.Model):
+    holiday_id = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=150)
+    holiday_type = models.CharField(max_length=100)
+    start_date = models.DateField()
+    end_date = models.DateField()
+
+    class Meta:
+        ordering = ["start_date", "name"]
+
+    def __str__(self):
+        return self.name
+
+
+class Fee(models.Model):
+    fee_id = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=150)
+    student_class = models.CharField(max_length=100)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    start_date = models.DateField()
+    end_date = models.DateField()
+
+    class Meta:
+        ordering = ["-start_date", "name"]
+
+    def __str__(self):
+        return f"{self.name} - {self.student_class}"
+
+
+class FeeCollection(models.Model):
+    STATUS_CHOICES = [
+        ("paid", "Paid"),
+        ("partial", "Partial"),
+        ("unpaid", "Unpaid"),
+    ]
+
+    receipt_number = models.CharField(max_length=100, unique=True)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="fee_collections")
+    fee = models.ForeignKey(Fee, on_delete=models.SET_NULL, blank=True, null=True, related_name="collections")
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
+    payment_date = models.DateField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="paid")
+
+    class Meta:
+        ordering = ["-payment_date"]
+
+    def __str__(self):
+        return f"{self.receipt_number} - {self.student}"
+
+
+class Expense(models.Model):
+    expense_id = models.CharField(max_length=100, unique=True)
+    title = models.CharField(max_length=150)
+    category = models.CharField(max_length=100)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    expense_date = models.DateField()
+    description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-expense_date"]
+
+    def __str__(self):
+        return self.title
+
+
+class Salary(models.Model):
+    salary_id = models.CharField(max_length=100, unique=True)
+    teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name="salaries")
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    salary_month = models.CharField(max_length=30)
+    payment_date = models.DateField()
+    status = models.CharField(max_length=50, default="Paid")
+
+    class Meta:
+        ordering = ["-payment_date"]
+
+    def __str__(self):
+        return f"{self.teacher} - {self.salary_month}"
+
+
+class Exam(models.Model):
+    name = models.CharField(max_length=150)
+    student_class = models.CharField(max_length=100)
+    subject = models.CharField(max_length=150)
+    fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    exam_date = models.DateField()
+
+    class Meta:
+        ordering = ["exam_date", "start_time"]
+
+    def __str__(self):
+        return f"{self.name} - {self.subject}"
+
+
+class Event(models.Model):
+    title = models.CharField(max_length=150)
+    event_type = models.CharField(max_length=100)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["start_date", "title"]
+
+    def __str__(self):
+        return self.title
+
+
+class TimeTableEntry(models.Model):
+    day = models.CharField(max_length=20)
+    student_class = models.CharField(max_length=100)
+    section = models.CharField(max_length=15, blank=True)
+    subject = models.CharField(max_length=150)
+    teacher = models.ForeignKey(Teacher, on_delete=models.SET_NULL, blank=True, null=True, related_name="time_table_entries")
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+
+    class Meta:
+        ordering = ["day", "start_time"]
+        verbose_name_plural = "Time table entries"
+
+    def __str__(self):
+        return f"{self.day} {self.subject}"
+
+
+class Book(models.Model):
+    book_id = models.CharField(max_length=100, unique=True)
+    title = models.CharField(max_length=150)
+    author = models.CharField(max_length=150)
+    subject = models.CharField(max_length=150, blank=True)
+    publisher = models.CharField(max_length=150, blank=True)
+    quantity = models.PositiveIntegerField(default=1)
+    available = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        ordering = ["title"]
+
+    def __str__(self):
+        return self.title

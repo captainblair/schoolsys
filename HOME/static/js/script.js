@@ -108,6 +108,18 @@ Version      : 1.0
 	if($('[data-toggle="tooltip"]').length > 0 ){
 		$('[data-toggle="tooltip"]').tooltip();
 	}
+
+	$(document).on('click', '.toggle-password', function() {
+		var target = $($(this).attr('data-target'));
+		var icon = $(this).find('i');
+		if(target.attr('type') === 'password') {
+			target.attr('type', 'text');
+			icon.removeClass('fa-eye').addClass('fa-eye-slash');
+		} else {
+			target.attr('type', 'password');
+			icon.removeClass('fa-eye-slash').addClass('fa-eye');
+		}
+	});
 	
     // Datatable
 

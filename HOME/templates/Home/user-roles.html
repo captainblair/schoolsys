@@ -1,0 +1,70 @@
+{% extends 'HOME/base.html' %}
+{% load static %}
+{% block body %}
+<div class="page-wrapper">
+<div class="content container-fluid">
+<div class="page-header">
+<div class="row align-items-center">
+<div class="col">
+<h3 class="page-title">User Roles</h3>
+<ul class="breadcrumb">
+<li class="breadcrumb-item"><a href="{% url 'index' %}">Dashboard</a></li>
+<li class="breadcrumb-item active">User Roles</li>
+</ul>
+</div>
+</div>
+</div>
+
+{% for message in messages %}
+<div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %}">{{ message }}</div>
+{% endfor %}
+
+<div class="row">
+<div class="col-sm-12">
+<div class="card card-table">
+<div class="card-body">
+<div class="table-responsive">
+<table class="table table-hover table-center mb-0">
+<thead>
+<tr>
+<th>Name</th>
+<th>Email</th>
+<th>Current Role</th>
+<th>Staff</th>
+<th class="text-right">Change Role</th>
+</tr>
+</thead>
+<tbody>
+{% for user_row in users %}
+<tr>
+<td>{{ user_row.account.get_full_name|default:user_row.account.username }}</td>
+<td>{{ user_row.account.email|default:"-" }}</td>
+<td>{{ user_row.role|title }}</td>
+<td>{% if user_row.account.is_staff or user_row.account.is_superuser %}Yes{% else %}No{% endif %}</td>
+<td class="text-right">
+<form method="POST" action="{% url 'update_user_role' user_row.account.id %}" class="d-inline-flex align-items-center">
+{% csrf_token %}
+<select class="form-control form-control-sm mr-2" name="role">
+<option value="student" {% if user_row.role == "student" %}selected{% endif %}>Student</option>
+<option value="teacher" {% if user_row.role == "teacher" %}selected{% endif %}>Teacher</option>
+<option value="admin" {% if user_row.role == "admin" %}selected{% endif %}>Admin</option>
+</select>
+<button type="submit" class="btn btn-sm btn-primary">Save</button>
+</form>
+</td>
+</tr>
+{% empty %}
+<tr>
+<td colspan="5" class="text-center">No users found.</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}

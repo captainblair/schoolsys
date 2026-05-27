@@ -6,9 +6,42 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
 from home_auth.notifications import create_notification, notify_admins
-from .models import Department, Parent, Student, Subject, Teacher
+from .models import (
+    Book,
+    Department,
+    Event,
+    Exam,
+    Expense,
+    Fee,
+    FeeCollection,
+    Holiday,
+    Parent,
+    Salary,
+    Student,
+    Subject,
+    Teacher,
+    TimeTableEntry,
+)
 
 User = get_user_model()
+
+
+CLASS_OPTIONS = [
+    "LKG",
+    "UKG",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11",
+    "12",
+]
 
 
 def _user_groups(user):
@@ -64,6 +97,52 @@ def _require_admin(request):
     if not _is_admin(request.user):
         return HttpResponseForbidden("Only administrators can access this page.")
     return None
+
+
+def _require_login(request):
+    if not request.user.is_authenticated:
+        return redirect("login")
+    return None
+
+
+def _current_student(request):
+    if not _is_student(request.user):
+        return None
+    return Student.objects.filter(user=request.user).first()
+
+
+def _select_options(values):
+    return [{"value": value, "label": value} for value in values]
+
+
+def _list_page(request, title, headers, rows, add_url=None, require_admin=False):
+    denied = _require_admin(request) if require_admin else _require_login(request)
+    if denied:
+        return denied
+    if not _is_admin(request.user):
+        add_url = None
+    return render(
+        request,
+        "students/management-list.html",
+        {"title": title, "headers": headers, "rows": rows, "add_url": add_url},
+    )
+
+
+def _form_page(request, title, list_title, list_url, form_title, fields):
+    denied = _require_admin(request)
+    if denied:
+        return denied
+    return render(
+        request,
+        "students/management-form.html",
+        {
+            "title": title,
+            "list_title": list_title,
+            "list_url": list_url,
+            "form_title": form_title,
+            "fields": fields,
+        },
+    )
 
 
 def _create_student_from_request(request, user=None, approval_status="pending"):
@@ -149,7 +228,30 @@ def student_dashboard(request):
     student = _student_queryset_for(request.user).first()
     if _is_student(request.user) and student is None:
         return redirect("complete_student_profile")
-    return render(request, "students/student-dashboard.html", {"student": student})
+    fees = Fee.objects.none()
+    payments = FeeCollection.objects.none()
+    exams = Exam.objects.none()
+    timetable_entries = TimeTableEntry.objects.none()
+    if student is not None:
+        fees = Fee.objects.filter(student_class=student.student_class)
+        payments = FeeCollection.objects.select_related("fee").filter(student=student)
+        exams = Exam.objects.filter(student_class=student.student_class)
+        timetable_entries = TimeTableEntry.objects.select_related("teacher").filter(student_class=student.student_class)
+        if student.section:
+            timetable_entries = timetable_entries.filter(section__in=["", student.section])
+    return render(
+        request,
+        "students/student-dashboard.html",
+        {
+            "student": student,
+            "fee_count": fees.count(),
+            "payment_count": payments.count(),
+            "upcoming_exams": exams.order_by("exam_date", "start_time")[:5],
+            "timetable_entries": timetable_entries.order_by("day", "start_time")[:5],
+            "event_count": Event.objects.count(),
+            "book_count": Book.objects.count(),
+        },
+    )
 
 
 @login_required
@@ -340,6 +442,23 @@ def delete_student(request, id=None, slug=None):
 def teacher_list(request):
     teachers = _teacher_queryset_for(request.user)
     return render(request, "students/teachers.html", {"teachers": teachers})
+
+
+def profile_approvals(request):
+    denied = _require_admin(request)
+    if denied:
+        return denied
+
+    pending_students = Student.objects.select_related("user", "parent").filter(approval_status="pending").order_by("-id")
+    pending_teachers = Teacher.objects.select_related("user").filter(approval_status="pending").order_by("-id")
+    return render(
+        request,
+        "students/profile-approvals.html",
+        {
+            "pending_students": pending_students,
+            "pending_teachers": pending_teachers,
+        },
+    )
 
 
 @login_required
@@ -599,3 +718,377 @@ def delete_subject(request, id):
     notify_admins("Subject deleted", f"{subject_name} was deleted.", reverse("subject_list"), exclude_user=request.user)
     messages.success(request, "Subject deleted successfully")
     return redirect("subject_list")
+
+
+def holiday_list(request):
+    holidays = Holiday.objects.all()
+    rows = [
+        [holiday.holiday_id, holiday.name, holiday.holiday_type, holiday.start_date, holiday.end_date]
+        for holiday in holidays
+    ]
+    return _list_page(request, "Holidays", ["ID", "Holiday Name", "Type", "Start Date", "End Date"], rows, "add_holiday")
+
+
+def add_holiday(request):
+    denied = _require_admin(request)
+    if denied:
+        return denied
+
+    if request.method == "POST":
+        Holiday.objects.create(
+            holiday_id=request.POST.get("holiday_id"),
+            name=request.POST.get("name"),
+            holiday_type=request.POST.get("holiday_type"),
+            start_date=request.POST.get("start_date"),
+            end_date=request.POST.get("end_date"),
+        )
+        messages.success(request, "Holiday added successfully")
+        return redirect("holiday_list")
+
+    fields = [
+        {"name": "holiday_id", "label": "Holiday ID", "type": "text", "required": True},
+        {"name": "name", "label": "Holiday Name", "type": "text", "required": True},
+        {"name": "holiday_type", "label": "Type of Holiday", "type": "text", "required": True},
+        {"name": "start_date", "label": "Start Date", "type": "date", "required": True},
+        {"name": "end_date", "label": "End Date", "type": "date", "required": True},
+    ]
+    return _form_page(request, "Add Holiday", "Holidays", "holiday_list", "Holiday Information", fields)
+
+
+def fee_list(request):
+    fees = Fee.objects.all()
+    student = _current_student(request)
+    if student is not None:
+        fees = fees.filter(student_class=student.student_class)
+    rows = [[fee.fee_id, fee.name, fee.student_class, fee.amount, fee.start_date, fee.end_date] for fee in fees]
+    return _list_page(request, "Fees", ["ID", "Fees Name", "Class", "Amount", "Start Date", "End Date"], rows, "add_fee")
+
+
+def add_fee(request):
+    denied = _require_admin(request)
+    if denied:
+        return denied
+
+    if request.method == "POST":
+        Fee.objects.create(
+            fee_id=request.POST.get("fee_id"),
+            name=request.POST.get("name"),
+            student_class=request.POST.get("student_class"),
+            amount=request.POST.get("amount"),
+            start_date=request.POST.get("start_date"),
+            end_date=request.POST.get("end_date"),
+        )
+        messages.success(request, "Fee added successfully")
+        return redirect("fee_list")
+
+    fields = [
+        {"name": "fee_id", "label": "Fees ID", "type": "text", "required": True},
+        {"name": "name", "label": "Fees Name", "type": "text", "required": True},
+        {"name": "student_class", "label": "Class", "type": "select", "required": True, "options": _select_options(CLASS_OPTIONS)},
+        {"name": "amount", "label": "Fees Amount", "type": "number", "required": True},
+        {"name": "start_date", "label": "Start Date", "type": "date", "required": True},
+        {"name": "end_date", "label": "End Date", "type": "date", "required": True},
+    ]
+    return _form_page(request, "Add Fees", "Fees", "fee_list", "Fees Information", fields)
+
+
+def fee_collection_list(request):
+    collections = FeeCollection.objects.select_related("student", "fee")
+    student = _current_student(request)
+    if student is not None:
+        collections = collections.filter(student=student)
+    elif not _is_admin(request.user):
+        collections = collections.none()
+    rows = [
+        [item.receipt_number, item.student, item.fee or "-", item.amount_paid, item.payment_date, item.get_status_display()]
+        for item in collections
+    ]
+    return _list_page(
+        request,
+        "Fees Collections",
+        ["Receipt", "Student", "Fee", "Amount Paid", "Payment Date", "Status"],
+        rows,
+        "add_fee_collection",
+    )
+
+
+def add_fee_collection(request):
+    denied = _require_admin(request)
+    if denied:
+        return denied
+
+    if request.method == "POST":
+        FeeCollection.objects.create(
+            receipt_number=request.POST.get("receipt_number"),
+            student_id=request.POST.get("student"),
+            fee_id=request.POST.get("fee") or None,
+            amount_paid=request.POST.get("amount_paid"),
+            payment_date=request.POST.get("payment_date"),
+            status=request.POST.get("status"),
+        )
+        messages.success(request, "Fee collection added successfully")
+        return redirect("fee_collection_list")
+
+    fields = [
+        {"name": "receipt_number", "label": "Receipt Number", "type": "text", "required": True},
+        {
+            "name": "student",
+            "label": "Student",
+            "type": "select",
+            "required": True,
+            "options": [{"value": student.id, "label": str(student)} for student in Student.objects.all()],
+        },
+        {
+            "name": "fee",
+            "label": "Fee",
+            "type": "select",
+            "required": False,
+            "options": [{"value": fee.id, "label": str(fee)} for fee in Fee.objects.all()],
+        },
+        {"name": "amount_paid", "label": "Amount Paid", "type": "number", "required": True},
+        {"name": "payment_date", "label": "Payment Date", "type": "date", "required": True},
+        {
+            "name": "status",
+            "label": "Status",
+            "type": "select",
+            "required": True,
+            "options": _select_options(["paid", "partial", "unpaid"]),
+        },
+    ]
+    return _form_page(request, "Add Fee Collection", "Fees Collections", "fee_collection_list", "Payment Information", fields)
+
+
+def expense_list(request):
+    denied = _require_admin(request)
+    if denied:
+        return denied
+
+    expenses = Expense.objects.all()
+    rows = [[expense.expense_id, expense.title, expense.category, expense.amount, expense.expense_date] for expense in expenses]
+    return _list_page(request, "Expenses", ["ID", "Title", "Category", "Amount", "Date"], rows, "add_expense", require_admin=True)
+
+
+def add_expense(request):
+    denied = _require_admin(request)
+    if denied:
+        return denied
+
+    if request.method == "POST":
+        Expense.objects.create(
+            expense_id=request.POST.get("expense_id"),
+            title=request.POST.get("title"),
+            category=request.POST.get("category"),
+            amount=request.POST.get("amount"),
+            expense_date=request.POST.get("expense_date"),
+            description=request.POST.get("description"),
+        )
+        messages.success(request, "Expense added successfully")
+        return redirect("expense_list")
+
+    fields = [
+        {"name": "expense_id", "label": "Expense ID", "type": "text", "required": True},
+        {"name": "title", "label": "Title", "type": "text", "required": True},
+        {"name": "category", "label": "Category", "type": "text", "required": True},
+        {"name": "amount", "label": "Amount", "type": "number", "required": True},
+        {"name": "expense_date", "label": "Date", "type": "date", "required": True},
+        {"name": "description", "label": "Description", "type": "textarea", "required": False},
+    ]
+    return _form_page(request, "Add Expense", "Expenses", "expense_list", "Expense Information", fields)
+
+
+def salary_list(request):
+    denied = _require_admin(request)
+    if denied:
+        return denied
+
+    salaries = Salary.objects.select_related("teacher")
+    rows = [[salary.salary_id, salary.teacher, salary.amount, salary.salary_month, salary.payment_date, salary.status] for salary in salaries]
+    return _list_page(request, "Salary", ["ID", "Teacher", "Amount", "Month", "Payment Date", "Status"], rows, "add_salary", require_admin=True)
+
+
+def add_salary(request):
+    denied = _require_admin(request)
+    if denied:
+        return denied
+
+    if request.method == "POST":
+        Salary.objects.create(
+            salary_id=request.POST.get("salary_id"),
+            teacher_id=request.POST.get("teacher"),
+            amount=request.POST.get("amount"),
+            salary_month=request.POST.get("salary_month"),
+            payment_date=request.POST.get("payment_date"),
+            status=request.POST.get("status"),
+        )
+        messages.success(request, "Salary added successfully")
+        return redirect("salary_list")
+
+    fields = [
+        {"name": "salary_id", "label": "Salary ID", "type": "text", "required": True},
+        {
+            "name": "teacher",
+            "label": "Teacher",
+            "type": "select",
+            "required": True,
+            "options": [{"value": teacher.id, "label": str(teacher)} for teacher in Teacher.objects.all()],
+        },
+        {"name": "amount", "label": "Amount", "type": "number", "required": True},
+        {"name": "salary_month", "label": "Month", "type": "text", "required": True},
+        {"name": "payment_date", "label": "Payment Date", "type": "date", "required": True},
+        {"name": "status", "label": "Status", "type": "text", "required": True},
+    ]
+    return _form_page(request, "Add Salary", "Salary", "salary_list", "Salary Information", fields)
+
+
+def exam_list(request):
+    exams = Exam.objects.all()
+    student = _current_student(request)
+    if student is not None:
+        exams = exams.filter(student_class=student.student_class)
+    rows = [[exam.name, exam.student_class, exam.subject, exam.start_time, exam.end_time, exam.exam_date, exam.fee] for exam in exams]
+    return _list_page(request, "Exams", ["Exam Name", "Class", "Subject", "Start Time", "End Time", "Date", "Fee"], rows, "add_exam")
+
+
+def add_exam(request):
+    denied = _require_admin(request)
+    if denied:
+        return denied
+
+    if request.method == "POST":
+        Exam.objects.create(
+            name=request.POST.get("name"),
+            student_class=request.POST.get("student_class"),
+            subject=request.POST.get("subject"),
+            fee=request.POST.get("fee") or 0,
+            start_time=request.POST.get("start_time"),
+            end_time=request.POST.get("end_time"),
+            exam_date=request.POST.get("exam_date"),
+        )
+        messages.success(request, "Exam added successfully")
+        return redirect("exam_list")
+
+    fields = [
+        {"name": "name", "label": "Exam Name", "type": "text", "required": True},
+        {"name": "student_class", "label": "Class", "type": "select", "required": True, "options": _select_options(CLASS_OPTIONS)},
+        {"name": "subject", "label": "Subject", "type": "text", "required": True},
+        {"name": "fee", "label": "Fees", "type": "number", "required": False},
+        {"name": "start_time", "label": "Start Time", "type": "time", "required": True},
+        {"name": "end_time", "label": "End Time", "type": "time", "required": True},
+        {"name": "exam_date", "label": "Exam Date", "type": "date", "required": True},
+    ]
+    return _form_page(request, "Add Exam", "Exams", "exam_list", "Exam Information", fields)
+
+
+def event_list(request):
+    events = Event.objects.all()
+    rows = [[event.title, event.event_type, event.start_date, event.end_date, event.description] for event in events]
+    return _list_page(request, "Events", ["Title", "Type", "Start Date", "End Date", "Description"], rows, "add_event")
+
+
+def add_event(request):
+    denied = _require_admin(request)
+    if denied:
+        return denied
+
+    if request.method == "POST":
+        Event.objects.create(
+            title=request.POST.get("title"),
+            event_type=request.POST.get("event_type"),
+            start_date=request.POST.get("start_date"),
+            end_date=request.POST.get("end_date"),
+            description=request.POST.get("description"),
+        )
+        messages.success(request, "Event added successfully")
+        return redirect("event_list")
+
+    fields = [
+        {"name": "title", "label": "Event Title", "type": "text", "required": True},
+        {"name": "event_type", "label": "Event Type", "type": "text", "required": True},
+        {"name": "start_date", "label": "Start Date", "type": "date", "required": True},
+        {"name": "end_date", "label": "End Date", "type": "date", "required": True},
+        {"name": "description", "label": "Description", "type": "textarea", "required": False},
+    ]
+    return _form_page(request, "Add Event", "Events", "event_list", "Event Information", fields)
+
+
+def timetable_list(request):
+    entries = TimeTableEntry.objects.select_related("teacher")
+    student = _current_student(request)
+    if student is not None:
+        entries = entries.filter(student_class=student.student_class)
+        if student.section:
+            entries = entries.filter(section__in=["", student.section])
+    rows = [[entry.day, entry.student_class, entry.section, entry.subject, entry.teacher or "-", entry.start_time, entry.end_time] for entry in entries]
+    return _list_page(request, "Time Table", ["Day", "Class", "Section", "Subject", "Teacher", "Start", "End"], rows, "add_timetable")
+
+
+def add_timetable(request):
+    denied = _require_admin(request)
+    if denied:
+        return denied
+
+    if request.method == "POST":
+        TimeTableEntry.objects.create(
+            day=request.POST.get("day"),
+            student_class=request.POST.get("student_class"),
+            section=request.POST.get("section"),
+            subject=request.POST.get("subject"),
+            teacher_id=request.POST.get("teacher") or None,
+            start_time=request.POST.get("start_time"),
+            end_time=request.POST.get("end_time"),
+        )
+        messages.success(request, "Time table entry added successfully")
+        return redirect("timetable_list")
+
+    fields = [
+        {"name": "day", "label": "Day", "type": "select", "required": True, "options": _select_options(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"])},
+        {"name": "student_class", "label": "Class", "type": "select", "required": True, "options": _select_options(CLASS_OPTIONS)},
+        {"name": "section", "label": "Section", "type": "text", "required": False},
+        {"name": "subject", "label": "Subject", "type": "text", "required": True},
+        {
+            "name": "teacher",
+            "label": "Teacher",
+            "type": "select",
+            "required": False,
+            "options": [{"value": teacher.id, "label": str(teacher)} for teacher in Teacher.objects.all()],
+        },
+        {"name": "start_time", "label": "Start Time", "type": "time", "required": True},
+        {"name": "end_time", "label": "End Time", "type": "time", "required": True},
+    ]
+    return _form_page(request, "Add Time Table", "Time Table", "timetable_list", "Time Table Information", fields)
+
+
+def library_list(request):
+    books = Book.objects.all()
+    rows = [[book.book_id, book.title, book.author, book.subject, book.publisher, book.quantity, book.available] for book in books]
+    return _list_page(request, "Library", ["ID", "Title", "Author", "Subject", "Publisher", "Qty", "Available"], rows, "add_book")
+
+
+def add_book(request):
+    denied = _require_admin(request)
+    if denied:
+        return denied
+
+    if request.method == "POST":
+        Book.objects.create(
+            book_id=request.POST.get("book_id"),
+            title=request.POST.get("title"),
+            author=request.POST.get("author"),
+            subject=request.POST.get("subject"),
+            publisher=request.POST.get("publisher"),
+            quantity=request.POST.get("quantity") or 1,
+            available=request.POST.get("available") or 1,
+        )
+        messages.success(request, "Book added successfully")
+        return redirect("library_list")
+
+    fields = [
+        {"name": "book_id", "label": "Book ID", "type": "text", "required": True},
+        {"name": "title", "label": "Book Title", "type": "text", "required": True},
+        {"name": "author", "label": "Author", "type": "text", "required": True},
+        {"name": "subject", "label": "Subject", "type": "text", "required": False},
+        {"name": "publisher", "label": "Publisher", "type": "text", "required": False},
+        {"name": "quantity", "label": "Quantity", "type": "number", "required": True},
+        {"name": "available", "label": "Available", "type": "number", "required": True},
+    ]
+    return _form_page(request, "Add Book", "Library", "library_list", "Book Information", fields)

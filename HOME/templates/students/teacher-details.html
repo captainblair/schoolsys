@@ -21,7 +21,7 @@
                {% if teacher.teacher_image %}
                   <img src="{{ teacher.teacher_image.url }}" class="mr-3 rounded" width="120" alt="{{ teacher.name }}">
                {% else %}
-                  <img src="{% static 'img/profiles/avatar-01.jpg' %}" class="mr-3 rounded" width="120" alt="{{ teacher.name }}">
+                  <span class="avatar-placeholder mr-3" style="height: 120px; width: 120px;"><i class="fas fa-user"></i></span>
                {% endif %}
                <div class="media-body">
                   <h4>{{ teacher.name }}</h4>
